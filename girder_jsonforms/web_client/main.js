@@ -7,6 +7,7 @@ import './views/ItemListWidget';
 import './views/FolderListWidget';
 import './views/widgets/DepositionListWidget';
 import AssignIGSNWidget from './views/widgets/AssignIGSNView';
+import ClassifyEbsdWidget from './views/widgets/ClassifyEbsdView';
 import DataCiteCardView from './views/CollectionLandingPage';
 import folderActionsTemplate from './templates/folderActions.pug';
 
@@ -115,6 +116,15 @@ wrap(HierarchyWidget, 'render', function (render) {
 HierarchyWidget.prototype.events['click a.g-assign-igsn-recursively'] = function (event) {
     event.preventDefault();
     new AssignIGSNWidget({
+        el: $('#g-dialog-container'),
+        parentView: this,
+        folder: this.parentModel,
+    }).render();
+};
+
+HierarchyWidget.prototype.events['click a.g-classify-ebsd'] = function (event) {
+    event.preventDefault();
+    new ClassifyEbsdWidget({
         el: $('#g-dialog-container'),
         parentView: this,
         folder: this.parentModel,
