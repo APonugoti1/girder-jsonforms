@@ -22,3 +22,4 @@ def test_manifest_uses_valid_exclude_directives():
     assert "exclude requirements-dev.txt" in lines
     assert "exclude tox.ini" in lines
     assert "include *.toml" not in lines
+    assert "include pyproject.toml" not in lines
