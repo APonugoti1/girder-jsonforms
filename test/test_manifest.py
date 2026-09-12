@@ -5,6 +5,7 @@ def test_manifest_includes_docs_and_toml_files():
     manifest = Path(__file__).resolve().parents[1] / "MANIFEST.in"
     lines = manifest.read_text().splitlines()
 
+    assert "include README.md" in lines
     assert "include *.md" in lines
     assert "include *.toml" in lines
     assert "recursive-include doc *.md" in lines
