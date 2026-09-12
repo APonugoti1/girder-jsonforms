@@ -3,7 +3,8 @@ li(role="presentation")
     i.icon-barcode
     | Add IGSN recursively
 
-li(role="presentation")
-  a.g-classify-ebsd(role="menuitem")
-    i.icon-signal
-    | Classify EBSD
+if showClassifyEbsd
+  li(role="presentation")
+    a.g-classify-ebsd(role="menuitem")
+      i.icon-signal
+      | Classify EBSD

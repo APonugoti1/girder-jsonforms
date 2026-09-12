@@ -407,7 +407,11 @@ def handle_deposition_registration(event: events.Event) -> None:
 @girderRest.boundHandler
 def add_public_settings(self, event):
     settings = event.info["returnVal"]
-    public_settings = [PluginSettings.AIMDL_COUNTS, PluginSettings.PROJECTS_ENABLED]
+    public_settings = [
+        PluginSettings.AIMDL_COUNTS,
+        PluginSettings.PROJECTS_ENABLED,
+        PluginSettings.MAIN_PROJECT,
+    ]
     settings.update({key: Setting().get(key) for key in public_settings})
     # A derived boolean, not the URL and emphatically not the token: the web
     # client only needs to know whether publishing is possible at all. Gating

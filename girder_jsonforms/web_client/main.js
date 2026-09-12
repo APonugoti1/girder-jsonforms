@@ -106,8 +106,12 @@ wrap(HierarchyWidget, 'render', function (render) {
 
     if (this.parentModel.resourceName === 'folder' &&
             this.parentModel.getAccessLevel() >= AccessType.WRITE) {
+        const publicSettings = getPublicSettings() || {};
+        const mainProject = (publicSettings['jsonforms.main_project'] || '').toLowerCase();
         this.$('.g-folder-actions-menu a.g-edit-folder').parent().after(folderActionsTemplate({
-            folder: this.parentModel
+            folder: this.parentModel,
+            // EBSD classification is an IMQCAM-specific workflow.
+            showClassifyEbsd: mainProject === 'imqcam'
         }));
     }
     return this;

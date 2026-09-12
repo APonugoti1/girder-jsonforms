@@ -2,8 +2,10 @@ import pytest
 
 from girder.models.folder import Folder
 from girder.models.item import Item
+from girder.models.setting import Setting
 from pytest_girder.assertions import assertStatusOk
 
+from ..settings import PluginSettings
 from ..worker_plugin import folder_ops
 
 
@@ -136,3 +138,16 @@ class TestEbsdFolderOperations:
             "status": "error",
             "message": "folder not found",
         }
+
+
+@pytest.mark.plugin("jsonforms")
+class TestMainProjectPublicSetting:
+    """The web client only shows the Classify EBSD folder action for IMQCAM,
+    so it needs to know which project this instance is flavored as."""
+
+    @pytest.mark.parametrize("main_project", ["imqcam", "aimdl"])
+    def test_main_project_is_published(self, server, admin, main_project):
+        Setting().set(PluginSettings.MAIN_PROJECT, main_project)
+        response = server.request(path="/system/public_settings", method="GET")
+        assertStatusOk(response)
+        assert response.json[PluginSettings.MAIN_PROJECT] == main_project
