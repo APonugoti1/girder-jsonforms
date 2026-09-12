@@ -8,6 +8,7 @@ def test_manifest_includes_docs_and_toml_files():
     assert "include *.md" in lines
     assert "include *.toml" in lines
     assert "recursive-include doc *.md" in lines
+    assert "recursive-include test *.py" in lines
 
 
 def test_manifest_uses_valid_exclude_directives():
