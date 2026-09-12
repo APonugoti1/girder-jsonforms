@@ -23,7 +23,7 @@ var AssignIGSNWidget = View.extend({
                     timeout: 4000,
                 });
             }).fail((err) => {
-                this.$('.g-validation-failed-message').text(err.responseJSON.message);
+                this.$('.g-validation-failed-message').text((err.responseJSON && err.responseJSON.message) || 'Failed to assign IGSN.');
                 this.$('button.g-assign-igsn').girderEnable(true);
             });
         }

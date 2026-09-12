@@ -1,9 +1,12 @@
+import re
 from itertools import islice
+
 from girder.constants import AccessType
+from girder.exceptions import AccessException
 from girder.models.folder import Folder
 from girder.models.item import Item
 from girder.models.user import User
-from girder.utility.progress import ProgressContext
+from girder.utility.progress import ProgressContext, noProgress
 from girder_worker.app import app
 
 
@@ -45,9 +48,24 @@ def chunked_cursor(cursor, size):
         yield chunk
 
 
+EBSD_DATA_TYPES = ("EBSD_Raw", "EBSD_Scripts", "EBSD_Derived")
+
+
+def _folder_tokens(folder_name: str) -> set:
+    """Split a folder name into lowercase words, adding a de-pluralized form of
+    each, so that matching is on whole words: "Drawings" must not match "raw"."""
+    tokens = set()
+    for token in re.split(r"[^a-z0-9]+", (folder_name or "").lower()):
+        if not token:
+            continue
+        tokens.add(token)
+        if token.endswith("s"):
+            tokens.add(token[:-1])
+    return tokens
+
+
 def classify_ebsd(file_name: str, folder_name: str = "") -> str:
     name = (file_name or "").lower()
-    folder = (folder_name or "").lower()
 
     raw_exts = (".ang", ".ctf", ".ebsd")
     script_exts = (".m", ".py", ".js", ".ipynb", ".mat")
@@ -75,32 +93,45 @@ def classify_ebsd(file_name: str, folder_name: str = "") -> str:
     if name.endswith(derived_exts):
         return "EBSD_Derived"
 
+    folder = _folder_tokens(folder_name)
     if "raw" in folder:
         return "EBSD_Raw"
-    if "script" in folder or "scripts" in folder:
+    if "script" in folder:
         return "EBSD_Scripts"
-    if "derived" in folder or "map" in folder or "stats" in folder or "summary" in folder:
+    if folder & {"derived", "map", "stat", "summary"}:
         return "EBSD_Derived"
 
     return "unknown"
 
 
-def recursive_classify_ebsd(folder, user):
-    for item in Folder().childItems(folder):
-        item_meta = item.get("meta", {}) or {}
-        item_type = classify_ebsd(item.get("name", ""), folder.get("name", ""))
-        if item_type != "unknown":
-            item_meta["data_type"] = item_type
-            Item().setMetadata(item, item_meta)
+def recursive_classify_ebsd(folder, user, progress=noProgress):
+    for chunk in chunked_cursor(Folder().childItems(folder), 1000):
+        for item in chunk:
+            item_meta = item.get("meta", {}) or {}
+            existing = item_meta.get("data_type")
+            if existing and existing not in EBSD_DATA_TYPES:
+                # data_type is AIMD's partition key; only ever re-classify our own.
+                continue
+            item_type = classify_ebsd(item.get("name", ""), folder.get("name", ""))
+            if item_type != "unknown":
+                item_meta["data_type"] = item_type
+                Item().setMetadata(item, item_meta)
 
     q = {
         "parentId": folder["_id"],
         "parentCollection": "folder",
     }
-    for subfolder in Folder().findWithPermissions(
-        q, user=user, level=AccessType.WRITE, limit=0, offset=0
-    ):
-        recursive_classify_ebsd(subfolder, user)
+    # Materialized up front so the cursor isn't held open for the whole descent.
+    subfolders = list(
+        Folder().findWithPermissions(
+            q, user=user, level=AccessType.WRITE, limit=0, offset=0
+        )
+    )
+    for subfolder in subfolders:
+        progress.update(
+            increment=1, message=f"Processing subfolder {subfolder['name']}"
+        )
+        recursive_classify_ebsd(subfolder, user, progress)
 
 
 def recursive_assign_igsn(folder, user, igsn, progress):
@@ -126,16 +157,25 @@ def recursive_assign_igsn(folder, user, igsn, progress):
 
 
 @app.task(queue="local")
-def classify_ebsd_folder_task(folderId: str, userId: str):
+def classify_ebsd_folder_task(folderId: str, userId: str, progress: bool = False):
     user = User().load(userId, force=True)
     if user is None:
         return {"status": "error", "message": "user not found"}
 
-    folder = Folder().load(folderId, force=True, user=user, level=AccessType.READ)
+    try:
+        folder = Folder().load(folderId, user=user, level=AccessType.WRITE)
+    except AccessException:
+        return {"status": "error", "message": "write access denied"}
     if folder is None:
         return {"status": "error", "message": "folder not found"}
 
-    recursive_classify_ebsd(folder, user)
+    with ProgressContext(
+        progress,
+        user=user,
+        title=f"Classifying EBSD files in {folder['name']}",
+        message="Recursing...",
+    ) as ctx:
+        recursive_classify_ebsd(folder, user, ctx)
     return {"status": "ok", "folderId": folderId}
 
 

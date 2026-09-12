@@ -20,12 +20,18 @@ def ebsd_tree(db, admin):
     )
     nested_item = Item().createItem("unknown.dat", admin, nested)
     unclassifiable = Item().createItem("notes.txt", admin, root)
+    # Would classify as EBSD_Derived, but already belongs to another AIMD
+    # partition and must be left alone.
+    foreign_item = Item().setMetadata(
+        Item().createItem("plot.png", admin, root), {"data_type": "xrd_raw"}
+    )
 
     yield {
         "root": root,
         "root_item": root_item,
         "nested_item": nested_item,
         "unclassifiable": unclassifiable,
+        "foreign_item": foreign_item,
     }
 
     Folder().remove(root)
@@ -52,6 +58,11 @@ class TestEbsdFolderOperations:
             ("sample.dat", "analysis scripts", "EBSD_Scripts"),
             ("sample.dat", "derived maps", "EBSD_Derived"),
             ("sample.dat", "other", "unknown"),
+            ("sample.dat", "EBSD Stats", "EBSD_Derived"),
+            # Whole-word matching: these folder names merely contain the keywords.
+            ("notes.txt", "Drawings", "unknown"),
+            ("notes.txt", "Sitemap", "unknown"),
+            ("notes.txt", "Manuscripts", "unknown"),
         ],
     )
     def test_classify_ebsd(self, file_name, folder_name, expected):
@@ -69,6 +80,22 @@ class TestEbsdFolderOperations:
         }
         assert reload(ebsd_tree["nested_item"])["meta"] == {"data_type": "EBSD_Raw"}
         assert reload(ebsd_tree["unclassifiable"])["meta"] == {}
+        assert reload(ebsd_tree["foreign_item"])["meta"] == {"data_type": "xrd_raw"}
+
+    def test_recursive_classify_ebsd_reclassifies_own_data_types(
+        self, admin, ebsd_tree
+    ):
+        """A stale EBSD_* value is ours to correct, unlike a foreign one."""
+        stale = Item().setMetadata(
+            Item().createItem("scan.ang", admin, ebsd_tree["root"]),
+            {"data_type": "EBSD_Derived"},
+        )
+
+        folder_ops.recursive_classify_ebsd(ebsd_tree["root"], admin)
+
+        assert Item().load(stale["_id"], force=True)["meta"] == {
+            "data_type": "EBSD_Raw"
+        }
 
     def test_classify_ebsd_folder_endpoint_classifies_subtree(
         self, server, admin, ebsd_tree, eagerWorkerTasks
@@ -77,6 +104,7 @@ class TestEbsdFolderOperations:
             path=f"/folder/{ebsd_tree['root']['_id']}/classify_ebsd",
             method="PUT",
             user=admin,
+            params={"progress": True},
         )
 
         assertStatusOk(response)
@@ -84,6 +112,19 @@ class TestEbsdFolderOperations:
         # The nested item is only reachable if the task recursed from the root.
         assert Item().load(ebsd_tree["nested_item"]["_id"], force=True)["meta"] == {
             "data_type": "EBSD_Raw"
+        }
+
+    def test_classify_ebsd_folder_task_returns_error_without_write_access(
+        self, user, ebsd_tree
+    ):
+        assert folder_ops.classify_ebsd_folder_task.run(
+            str(ebsd_tree["root"]["_id"]), str(user["_id"])
+        ) == {
+            "status": "error",
+            "message": "write access denied",
+        }
+        assert Item().load(ebsd_tree["root_item"]["_id"], force=True)["meta"] == {
+            "existing": True
         }
 
     def test_classify_ebsd_folder_task_returns_error_for_missing_folder(

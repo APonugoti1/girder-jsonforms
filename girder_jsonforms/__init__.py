@@ -321,13 +321,22 @@ def _assign_igsn_to_folder(self, folder, igsn, progress):
     .modelParam(
         "id", "The ID of the folder to process.", model=Folder, level=AccessType.WRITE
     )
+    .param(
+        "progress",
+        "Whether to report progress.",
+        paramType="query",
+        required=False,
+        dataType="boolean",
+        default=False,
+    )
     .errorResponse("ID was invalid.", 400)
     .errorResponse("Write access was denied on the folder.", 403)
 )
-def _classify_ebsd_to_folder(self, folder):
+def _classify_ebsd_to_folder(self, folder, progress):
     classify_ebsd_folder_task.delay(
         folderId=str(folder["_id"]),
         userId=str(self.getCurrentUser()["_id"]),
+        progress=progress,
     )
     return {
         "message": f"Classifying EBSD files in folder {folder['name']} in the background."

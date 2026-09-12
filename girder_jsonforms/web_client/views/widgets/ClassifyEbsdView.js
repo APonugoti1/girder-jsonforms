@@ -12,7 +12,7 @@ var ClassifyEbsdWidget = View.extend({
             this.$('button.g-classify-ebsd').girderEnable(false);
             restRequest({
                 method: 'PUT',
-                url: `folder/${this.folder.id}/classify_ebsd`,
+                url: `folder/${this.folder.id}/classify_ebsd?progress=true`,
                 error: null,
             }).done(() => {
                 this.$el.modal('hide');
@@ -23,7 +23,7 @@ var ClassifyEbsdWidget = View.extend({
                     timeout: 4000,
                 });
             }).fail((err) => {
-                this.$('.g-validation-failed-message').text(err.responseJSON.message || 'Failed to classify folder.');
+                this.$('.g-validation-failed-message').text((err.responseJSON && err.responseJSON.message) || 'Failed to classify folder.');
                 this.$('button.g-classify-ebsd').girderEnable(true);
             });
         }
