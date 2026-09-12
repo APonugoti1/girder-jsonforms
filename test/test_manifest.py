@@ -21,6 +21,9 @@ def test_manifest_uses_valid_exclude_directives():
     assert "exclude codecov.yml" in lines
     assert "exclude requirements-dev.txt" in lines
     assert "exclude tox.ini" in lines
+    assert "include CLAUDE.md" in lines
+    assert "include ruff.toml" in lines
+    assert "recursive-include doc *.md" in lines
     assert "include *.md" not in lines
     assert "include *.toml" not in lines
     assert "include pyproject.toml" not in lines
