@@ -7,7 +7,7 @@ def test_manifest_includes_docs_and_toml_files():
 
     assert "include README.md" in lines
     assert "include *.md" in lines
-    assert "include *.toml" in lines
+    assert "include ruff.toml" in lines
     assert "recursive-include doc *.md" in lines
     assert "recursive-include test *.py" in lines
 
@@ -21,3 +21,4 @@ def test_manifest_uses_valid_exclude_directives():
     assert "exclude codecov.yml" in lines
     assert "exclude requirements-dev.txt" in lines
     assert "exclude tox.ini" in lines
+    assert "include *.toml" not in lines
