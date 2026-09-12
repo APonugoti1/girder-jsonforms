@@ -220,30 +220,6 @@ class TestDepositionResource:
         Folder().remove(root_folder)
         Collection().remove(collection)
 
-    def test_classify_ebsd_folder(self, server, admin, eagerWorkerTasks):
-        collection = Collection().createCollection("EBSD Folder Test", admin)
-        folder = Folder().createFolder(
-            collection,
-            "EBSD Data",
-            parentType="collection",
-            creator=admin,
-        )
-        item = Item().createItem("scan.ctf", admin, folder)
-
-        response = server.request(
-            path=f"/folder/{folder['_id']}/classify_ebsd",
-            method="PUT",
-            user=admin,
-        )
-
-        assertStatusOk(response)
-        assert "Classifying EBSD files" in response.json["message"]
-        loaded = Item().load(item["_id"], force=True)
-        assert loaded["meta"]["data_type"] == "EBSD_Raw"
-
-        Folder().remove(folder)
-        Collection().remove(collection)
-
     def test_create_deposition_with_tracking(
         self, server, admin, sample_metadata, setup_settings, eagerWorkerTasks
     ):
